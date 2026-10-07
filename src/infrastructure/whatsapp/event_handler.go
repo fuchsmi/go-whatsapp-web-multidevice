@@ -217,7 +217,17 @@ func handlePairPasskeyError(instance *DeviceInstance, evt *events.PairPasskeyErr
 }
 
 func handleLoggedOut(instance *DeviceInstance) {
-	logrus.Warnf("[REMOTE_LOGOUT] Received LoggedOut event for device %s - user logged out from phone", instance.ID())
+	connected := false
+	loggedIn := false
+	jid := ""
+	if client := instance.GetClient(); client != nil {
+		connected = client.IsConnected()
+		loggedIn = client.IsLoggedIn()
+		if client.Store != nil && client.Store.ID != nil {
+			jid = client.Store.ID.String()
+		}
+	}
+	logrus.Warnf("[REMOTE_LOGOUT] Received LoggedOut event for device=%s jid=%s connected=%t logged_in=%t - remote logout received", instance.ID(), jid, connected, loggedIn)
 	instance.ClearPasskeyState()
 
 	if client := instance.GetClient(); client != nil {
@@ -368,10 +378,10 @@ func handleGroupInfo(ctx context.Context, evt *events.GroupInfo, deviceID string
 
 	// Log group events for debugging
 	if len(evt.Join) > 0 {
-		log.Infof("Group %s: %d users joined at %s", evt.JID, len(evt.Join), evt.Timestamp)
+		log.Infof("[GROUP_EVENT_DEBUG] Group %s: users joined=%v at %s", evt.JID, evt.Join, evt.Timestamp)
 	}
 	if len(evt.Leave) > 0 {
-		log.Infof("Group %s: %d users left at %s", evt.JID, len(evt.Leave), evt.Timestamp)
+		log.Infof("[GROUP_EVENT_DEBUG] Group %s: users left=%v at %s", evt.JID, evt.Leave, evt.Timestamp)
 	}
 	if len(evt.Promote) > 0 {
 		log.Infof("Group %s: %d users promoted at %s", evt.JID, len(evt.Promote), evt.Timestamp)
