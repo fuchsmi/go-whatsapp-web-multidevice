@@ -46,6 +46,7 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.PairPasskeyError:
 		handlePairPasskeyError(instance, evt)
 	case *events.LoggedOut:
+		logrus.Warnf("[REMOTE_LOGOUT_DEBUG] evt=%+v on_connect=%t reason=%v", evt, evt.OnConnect, evt.Reason)
 		handleLoggedOut(instance)
 	case *events.Connected, *events.PushNameSetting:
 		handleConnectionEvents(ctx, client, instance)
