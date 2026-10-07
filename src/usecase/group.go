@@ -141,10 +141,34 @@ func (service serviceGroup) ManageParticipant(ctx context.Context, request domai
 		return result, err
 	}
 
+	logrus.Infof("[GROUP_PARTICIPANT_DEBUG] action=%s group=%s input=%v resolved=%v", request.Action, groupJID, request.Participants, participantsJID)
+	if request.Action == whatsmeow.ParticipantChangeAdd {
+		for _, participantJID := range participantsJID {
+			lid, lidErr := client.Store.LIDs.GetLIDForPN(ctx, participantJID)
+			if lidErr != nil {
+				logrus.Warnf("[GROUP_PARTICIPANT_DEBUG] participant=%s LID lookup failed: %v", participantJID, lidErr)
+			} else {
+				logrus.Infof("[GROUP_PARTICIPANT_DEBUG] participant=%s stored_lid=%s", participantJID, lid)
+			}
+
+			userInfo, infoErr := client.GetUserInfo(ctx, []types.JID{participantJID})
+			if infoErr != nil {
+				logrus.Warnf("[GROUP_PARTICIPANT_DEBUG] participant=%s GetUserInfo failed: %v", participantJID, infoErr)
+			} else if info, ok := userInfo[participantJID]; ok {
+				logrus.Infof("[GROUP_PARTICIPANT_DEBUG] participant=%s userinfo_lid=%s devices=%v", participantJID, info.LID, info.Devices)
+			} else {
+				logrus.Infof("[GROUP_PARTICIPANT_DEBUG] participant=%s GetUserInfo returned no direct map entry: %+v", participantJID, userInfo)
+			}
+		}
+	}
+
+	logrus.Infof("[GROUP_PARTICIPANT_DEBUG] calling UpdateGroupParticipants action=%s group=%s participants=%v", request.Action, groupJID, participantsJID)
 	participants, err := client.UpdateGroupParticipants(ctx, groupJID, participantsJID, request.Action)
 	if err != nil {
+		logrus.Errorf("[GROUP_PARTICIPANT_DEBUG] UpdateGroupParticipants failed action=%s group=%s participants=%v err=%v", request.Action, groupJID, participantsJID, err)
 		return result, err
 	}
+	logrus.Infof("[GROUP_PARTICIPANT_DEBUG] UpdateGroupParticipants returned action=%s group=%s response=%+v", request.Action, groupJID, participants)
 
 	for _, participant := range participants {
 		if participant.Error == 403 && participant.AddRequest != nil {
@@ -302,13 +326,19 @@ func (service serviceGroup) participantToJID(ctx context.Context, participants [
 	var participantsJID []types.JID
 	for _, participant := range participants {
 		formattedParticipant := participant + config.WhatsappTypeUser
+		logrus.Infof("[GROUP_PARTICIPANT_DEBUG] participant input=%q formatted=%q", participant, formattedParticipant)
 
-		if !utils.IsOnWhatsapp(client, formattedParticipant) {
+		isOnWhatsApp := utils.IsOnWhatsapp(client, formattedParticipant)
+		logrus.Infof("[GROUP_PARTICIPANT_DEBUG] participant=%q IsOnWhatsApp=%t", formattedParticipant, isOnWhatsApp)
+		if !isOnWhatsApp {
 			return nil, pkgError.ErrUserNotRegistered
 		}
 
 		if participantJID, err := types.ParseJID(formattedParticipant); err == nil {
+			logrus.Infof("[GROUP_PARTICIPANT_DEBUG] participant=%q parsed_jid=%s", participant, participantJID)
 			participantsJID = append(participantsJID, participantJID)
+		} else {
+			logrus.Warnf("[GROUP_PARTICIPANT_DEBUG] participant=%q ParseJID failed: %v", participant, err)
 		}
 	}
 	return participantsJID, nil
