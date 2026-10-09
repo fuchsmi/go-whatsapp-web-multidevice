@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"strings"
 	"sync"
 	"time"
 
@@ -289,6 +290,31 @@ func (service serviceUser) MyPrivacySetting(ctx context.Context) (response domai
 	response.Status = string(resp.Status)
 	response.ReadReceipts = string(resp.ReadReceipts)
 	response.Profile = string(resp.Profile)
+	return response, nil
+}
+
+func (service serviceUser) UpsertContacts(ctx context.Context, request domainUser.UpsertContactsRequest) (response domainUser.UpsertContactsResponse, err error) {
+	client := whatsapp.ClientFromContext(ctx)
+	if client == nil {
+		return response, pkgError.ErrWaCLI
+	}
+	utils.MustLogin(client)
+
+	for _, contact := range request.Contacts {
+		name := strings.TrimSpace(contact.Name)
+		phone := utils.CleanPhoneForWhatsApp(contact.Phone)
+		if name == "" || phone == "" {
+			continue
+		}
+		jid, parseErr := utils.ParseJID(phone)
+		if parseErr != nil || jid.Server != types.DefaultUserServer {
+			continue
+		}
+		if err := client.Store.Contacts.PutContactName(ctx, jid, name, name); err != nil {
+			return response, err
+		}
+		response.Updated++
+	}
 	return response, nil
 }
 
