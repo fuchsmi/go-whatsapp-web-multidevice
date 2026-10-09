@@ -73,6 +73,19 @@ type MyListContactsResponseData struct {
 	Name string    `json:"name"`
 }
 
+type UpsertContact struct {
+	Phone string `json:"phone"`
+	Name  string `json:"name"`
+}
+
+type UpsertContactsRequest struct {
+	Contacts []UpsertContact `json:"contacts"`
+}
+
+type UpsertContactsResponse struct {
+	Updated int `json:"updated"`
+}
+
 type ChangePushNameRequest struct {
 	PushName string `json:"push_name" form:"push_name"`
 }
